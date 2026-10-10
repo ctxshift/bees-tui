@@ -9,7 +9,7 @@
   "files": [
     "dist",
     "README.md",
-    "docs/DESIGN.md"
+    "docs"
   ],
   "engines": {
     "node": ">=22.12"
