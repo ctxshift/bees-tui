@@ -1,4 +1,5 @@
 [tools]
+"github:ctxshift/bees" = "0.4.0"
 node = "25.6.1"
 
 [env]
