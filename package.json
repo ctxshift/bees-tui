@@ -19,6 +19,7 @@
     "start": "node dist/cli.js",
     "prestart": "npm run build",
     "build": "tsc -p tsconfig.build.json",
+    "build:binary": "bun scripts/build-binary.mjs",
     "prepack": "npm run build",
     "typecheck": "tsc --noEmit",
     "pretest": "npm run build",

@@ -12,6 +12,16 @@ run = "npm ci"
 [tasks.build]
 run = "npm run build"
 
+[tasks."build:binary"]
+description = "Compile a standalone TUI executable using Bun"
+run = "npm run build:binary"
+
+[tasks."test:binary"]
+description = "Build and test the standalone executable in a real terminal"
+depends = ["build:binary"]
+env = { BEES_TUI_TEST_BINARY = "1" }
+run = "npx vitest run test/pty.test.ts"
+
 [tasks.start]
 description = "Open the live TUI in the current Bees project"
 raw = true

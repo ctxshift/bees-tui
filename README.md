@@ -13,6 +13,24 @@ npm start -- --project C:\Users\ozone\source\zig\bees --bees C:\Users\ozone\sour
 
 On another machine, run `npm ci`, then `npm start -- --project <project> --bees <executable>`. The live TUI reads and writes real issues through the CLI. `npm run demo` uses fictional, in-memory issues only.
 
+## Standalone executable
+
+Install Bun on the build machine (validated with Bun **1.3.6**) and install this project's locked dependencies with `mise run setup`. Keep npm's lockfile; Bun is used here as the compiler, not as a replacement package manager.
+
+```powershell
+mise run build:binary
+mise run test:binary
+.\release\bees-tui.exe --project C:\Users\ozone\source\zig\bees --bees C:\Users\ozone\source\zig\bees\zig-out\bin\bees.exe
+```
+
+`npm run build:binary` also works directly. The build produces `release/bees-tui.exe` on Windows, or `release/bees-tui` on other hosts. Copy that one file to distribute the TUI: it embeds the Bun runtime, application, React, Ink and Yoga layout code. The validated Windows x64 build is about **109 MiB** uncompressed. It needs neither `node_modules` nor a separate JavaScript runtime at execution time.
+
+The **Bees executable is still required** for real projects; provide `--bees`, `BEES_BIN`, or a `bees` executable on PATH. Git is optional and enables the uncommitted-record markers. Clipboard and external-editor features still use platform tools.
+
+The build excludes Ink's optional development debugger to avoid Bun eagerly resolving an uninstalled `react-devtools-core` package. No runtime dependencies are externalized. Bun supports [single-file compilation and platform-specific targets](https://bun.sh/docs/bundler/executables); this task builds for the current host. Only Windows x64 has been validated here; Linux/macOS builds need native terminal validation before release.
+
+`mise run test:binary` rebuilds, copies the executable into a disposable Bees project outside this checkout, and exercises help, plain issue listing, live rendering and CLI updates, navigation, JSONL preservation, resizing and terminal restoration through a real PTY. It fails rather than skipping if the required Bees executable is missing. Build output is ignored by Git.
+
 ## Graph
 
 Press **3** for the Git-style relationship graph. Prerequisites appear above downstream issues; colored terminal tracks show branches and merges. The graph uses the whole project so a Queue filter cannot hide a blocker. Its inspector follows the selected issue. All views share the same terminal dimensions; rows scroll inside their pane.
