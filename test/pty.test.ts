@@ -49,7 +49,7 @@ describe.skipIf(!existsSync(binary))('real terminal session', () => {
       expect(await readFile(jsonl, 'utf8')).toBe(unusual);
       await run(binary, ['update', id, '--title', 'External PTY update'], {cwd: directory}); await waitFor('External PTY update');
       const afterEdit = await readFile(jsonl);
-      terminal.write('3'); await waitFor('RELATIONSHIP GRAPH');
+      // Graph is already active; do not coalesce a redundant tab key with g.
       terminal.resize(60, 24); terminal.write('g'); await waitFor('List view');
       const exited = new Promise<number>(done => terminal!.onExit(event => done(event.exitCode)));
       terminal.write('q'); expect(await exited).toBe(0);
@@ -60,4 +60,3 @@ describe.skipIf(!existsSync(binary))('real terminal session', () => {
     } finally {terminal?.kill(); await rm(directory, {recursive: true, force: true, maxRetries: 5, retryDelay: 100});}
   }, 25000);
 });
-

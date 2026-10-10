@@ -34,3 +34,11 @@ run = "npm run check"
 [tasks.bees]
 description = "Use this project's Bees tracker"
 run = "bees"
+
+[tasks."test:ui"]
+description = "Run fast live keyboard and rendering tests without a build or Bees CLI"
+run = "npm run test:ui"
+
+[tasks."test:ui:watch"]
+description = "Watch live UI tests while developing"
+run = "npm run test:ui:watch"
