@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import {parseArgs} from 'node:util';
-import {render, renderToString} from 'ink';
-import {App} from './app.js';
+import {render} from 'ink';
 import {LiveApp} from './live.js';
 import {CliClient} from './client.js';
 import {Session} from './session.js';
@@ -10,7 +9,7 @@ import {resolveExecutable} from './process.js';
 
 try {
   const {values} = parseArgs({options: {
-    demo: {type: 'boolean'}, ascii: {type: 'boolean'}, 'no-motion': {type: 'boolean'}, preview: {type: 'boolean'}, help: {type: 'boolean'},
+    ascii: {type: 'boolean'}, 'no-motion': {type: 'boolean'}, help: {type: 'boolean'},
     project: {type: 'string'}, bees: {type: 'string'}, mise: {type: 'boolean'}, theme: {type: 'string'},
     config: {type: 'string'}, 'poll-ms': {type: 'string'}, 'screen-reader': {type: 'boolean'},
   }});
@@ -18,7 +17,6 @@ try {
     console.log(`bees-tui / an interactive Bees workbench
 
 bees-tui --project <directory> [--bees <executable>]
-bees-tui --demo
 
 --project       Initialized project (defaults to current directory/ancestors)
 --bees          Bees executable path (also BEES_BIN)
@@ -29,14 +27,9 @@ bees-tui --demo
 --no-motion     Disable animation
 --screen-reader Accessible rendering, no animation or alternate screen
 --config        User preferences file
---demo          Fictional in-memory demo; never opens a real project
---preview       Static fictional preview
 
 Keys: : commands, / search, e edit, 3 graph, r refresh, ? help, q quit.
 Writes use the Bees CLI. External CLI updates are refreshed automatically.`);
-  } else if (values.demo || values.preview) {
-    if (values.preview || !process.stdin.isTTY || !process.stdout.isTTY) console.log(renderToString(<App width={132} height={32} interactive={false} motion={false} ascii={values.ascii}/>, {columns: 132}));
-    else await render(<App ascii={values.ascii} motion={!values['no-motion'] && !process.env.NO_COLOR}/>, {alternateScreen: true, maxFps: 30}).waitUntilExit();
   } else {
     const project = await findProject(values.project || process.cwd());
     const executable = await resolveExecutable(values.bees || process.env.BEES_BIN, project, values.mise);

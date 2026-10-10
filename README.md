@@ -4,14 +4,21 @@ A TypeScript + React Ink issue workbench with **Queue**, **Board**, and **Graph*
 
 ## Run
 
-Requires Node 22.12+ and a working Bees executable.
+Running from source requires Node 22.12+ and a working Bees executable. The standalone build below does not require Node or Bun on the user's machine.
+
+With mise, from this checkout:
 
 ```powershell
 Set-Location C:\Users\ozone\source\bees-tui
-npm start -- --project C:\Users\ozone\source\zig\bees --bees C:\Users\ozone\source\zig\bees\zig-out\bin\bees.exe
+mise run setup
+mise run start
+# Open a different tracker:
+mise run start -- -- --project C:\Users\ozone\source\zig\bees
 ```
 
-On another machine, run `npm ci`, then `npm start -- --project <project> --bees <executable>`. The live TUI reads and writes real issues through the CLI. `npm run demo` uses fictional, in-memory issues only.
+Without mise, run `npm ci`, then `npm start -- --project <project> --bees <executable>`. Startup builds the current source before launching. The live TUI reads and writes real issues through the CLI.
+
+Use an interactive terminal. Redirected or piped input/output produces a plain issue listing instead of the TUI. The mise start task uses `raw = true` to preserve terminal input and output. Useful options include `--ascii`, `--no-motion`, `--screen-reader`, `--theme paper`, `--config <file>` and `--poll-ms 2500` (minimum 500).
 
 ## Standalone executable
 
@@ -58,21 +65,21 @@ The fixed **Live** light brightens briefly after a successful read; the adjacent
 
 Refresh preserves drafts and retains the last good snapshot on failure. Before saving, edited fields are compared with their current values. Conflicting edits keep the draft and report the conflict. Writes are never automatically retried after an uncertain outcome. Undo is limited to supported inverse operations with concurrency checks.
 
-The local Bees build now supports atomic conditional writes (--if-revision) from **bees-21**. The TUI uses a fresh project revision inside each conditional mutation; a concurrent edit causes a conflict with no partial writes. Older Bees builds remain readable but must be upgraded before editing through the TUI. Revision tokens cover the entire project, so unrelated edits during the save window can also cause a conflict. Other findings: **bees-19** (detail JSON omits comments; dedicated endpoint used), **bees-20** (priority validation), **bees-22** (reopening retains completion metadata), **bees-23** (revisioned bulk snapshot endpoint).
+Editing existing issues requires a Bees build supporting revision tokens and `--if-revision`. The TUI uses a fresh project revision inside each conditional mutation; a concurrent edit causes a conflict with no partial writes. Revision tokens cover the entire project, so unrelated edits during the save window can also cause a conflict.
+
+The backend bulk snapshot endpoint is implemented, but TUI adoption remains open in the TUI tracker. Refresh currently uses separate list, readiness, detail and dependency reads. See [the design](docs/DESIGN.md) for architecture, behavior contracts and remaining validation work.
 
 ## Validation
 
 ```sh
-npm run check
-npm run preview
+mise run test
 ```
 
 Tests cover graph topology, merges, cycles, bounded lanes, Unicode, layout geometry, keyboard journeys, competing writers, adapter contracts, real disposable Bees projects, and a real PTY with resize and terminal restoration. Set `BEES_BIN` to run the CLI/PTY suites outside the local repository layout; those suites skip when no executable is available. Local validation includes Windows ConPTY; other operating systems have not yet been validated here.
 
-The browser preview in `docs/preview.html` retains the approved interactive design experiment. The terminal implementation uses native text cells, not browser graphics. Regenerate the preview with `npm run preview`.
 
 ## Mise and issue tracking
 
-`mise.toml` pins Node 25.6.1, the version validated for this project. Run `mise run setup`, `mise run test`, `mise run demo`, or `mise run start`. The default start command opens this project's own tracker; pass `-- --project <path>` to select another project. The local `../zig/bees/zig-out/bin` directory is prepended to PATH.
+`mise.toml` pins Node 25.6.1, the version validated for this project. The default start command opens this project's own tracker. Use `mise run start -- -- --project <path>` to select another project: the first separator belongs to mise, the second forwards npm arguments to the application. The local `../zig/bees/zig-out/bin` directory is prepended to PATH; build Bees there or provide an installed executable via `--bees` or `BEES_BIN`.
 
 New issues belong in this directory's `.bees` tracker (prefix `bees-tui`). Use `mise run bees -- list`, `mise run bees -- create "Title"`, or `mise exec -- bees <command>`. Existing Bees backend issues remain in their original tracker for continuity.

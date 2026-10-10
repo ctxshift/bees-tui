@@ -27,15 +27,8 @@ description = "Open the live TUI in the current Bees project"
 raw = true
 run = "npm start"
 
-[tasks.demo]
-raw = true
-run = "npm run demo"
-
 [tasks.test]
 run = "npm run check"
-
-[tasks.preview]
-run = "npm run preview"
 
 [tasks.bees]
 description = "Use this project's Bees tracker"

@@ -1,4 +1,4 @@
-import type {Issue} from './model.js';
+import type {Issue} from '../src/model.js';
 
 const base: Omit<Issue, 'id' | 'title'> = {
   description: 'Make the next piece of work easier to pick up and finish.',
@@ -7,7 +7,7 @@ const base: Omit<Issue, 'id' | 'title'> = {
   acceptance: '[ ] Works with the keyboard\n[ ] Handles empty and error states\n[ ] Has a behavior test', comments: [],
 };
 
-export function demoIssues(): Issue[] {
+export function testIssues(): Issue[] {
   return structuredClone([
     {...base, id: 'bees-40', title: 'A calmer place to ship great work', type: 'epic', priority: 2,
       description: 'A terminal workbench that makes the next action obvious. Fast navigation, clear dependencies, and a little delight.', labels: ['milestone']},
@@ -27,7 +27,7 @@ export function demoIssues(): Issue[] {
       description: 'Measure terminal cells rather than string length. Include emoji, CJK, and combining characters.',
       labels: ['terminal', 'polish'], dependencies: [{id: 'bees-48', type: 'related'}]},
     {...base, id: 'bees-46', title: 'Write the first-run welcome', type: 'story', priority: 3, assignee: 'mira', labels: ['experience']},
-    {...base, id: 'bees-47', title: 'Ship the workbench preview', status: 'in_progress', priority: 2,
+    {...base, id: 'bees-47', title: 'Ship the workbench', status: 'in_progress', priority: 2,
       labels: ['release'], dependencies: [{id: 'bees-45', type: 'blocks'}, {id: 'bees-43', type: 'blocks'}]},
     {...base, id: 'bees-48', title: 'Offer a quiet, ASCII-only mode', status: 'closed', priority: 3, labels: ['terminal']},
     {...base, id: 'bees-49', title: 'Explore project switching', status: 'deferred', priority: 4, assignee: '', labels: ['exploration']},

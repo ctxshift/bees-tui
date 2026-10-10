@@ -30,6 +30,7 @@ describe.skipIf(!existsSync(binary))('real terminal session', () => {
         await copyFile(standalone, detached);
         expect(await run(detached, ['--help'], {cwd: directory})).toContain('an interactive Bees workbench');
         expect(await run(detached, ['--project', directory, '--bees', binary], {cwd: directory})).toContain('Original PTY title');
+        for (const flag of ['--preview', '--demo']) await expect(run(detached, [flag], {cwd: directory})).rejects.toThrow('Unknown option');
       }
       const args = ['--project', directory, '--bees', binary, '--config', join(directory, 'tui.json'), '--poll-ms', '500', '--ascii', '--no-motion'];
       terminal = pty.spawn(launch === 'binary' ? detached : launch === 'mise' ? mise! : process.execPath,

@@ -1,7 +1,7 @@
 import {Box, Text} from 'ink';
 import stringWidth from 'string-width';
-import type {Filter, Issue, Section} from './model.js';
-import {blockers, matchesFilter, relationRows, statuses} from './model.js';
+import type {Issue, Section} from './model.js';
+import {blockers, relationRows, statuses} from './model.js';
 import {asciiBorder, clean, fit, statusPalette, statusLabels, statusSymbols, viewport, usePalette} from './theme.js';
 import type {Column} from './preferences.js';
 
@@ -113,40 +113,3 @@ export function Board({issues, all, selected, width, height, ascii, closedCollap
   </Box>;
 }
 
-export function Links({issue, issues, cursor, width, height, ascii}: {
-  issue?: Issue; issues: Issue[]; cursor: number; width: number; height: number; ascii: boolean;
-}) {
-  const c = usePalette();
-  const relations = issue ? relationRows(issue, issues) : [];
-  return <Box width={width} height={height} borderStyle={ascii ? asciiBorder : 'round'} borderColor={c.honey} paddingX={1} flexDirection="column">
-    <Text color={c.honey}>{fit('THE PATH FORWARD', width - 4, ascii)}</Text>
-    <Text color={c.text} bold>{fit(issue ? `${issue.id}  ${issue.title}` : 'Select an issue', width - 4, ascii)}</Text>
-    <Text color={c.muted}>{fit('Follow a relationship. Esc retraces your steps.', width - 4, ascii)}</Text>
-    <Text color={c.text}> </Text>
-    {!relations.length && <Text color={c.green}>No linked issues. A clear path.</Text>}
-    {viewport(relations, cursor, height - 8).map(row => {
-      const other = issues.find(item => item.id === row.id);
-      const selected = relations[cursor] === row;
-      return <Text key={row.label + row.id} color={selected ? c.honey : other?.status === 'closed' ? c.green : c.text} backgroundColor={selected ? c.selected : undefined}>
-        {fit(`${selected ? '>' : ' '} ${row.label.padEnd(10)} ${row.id}  ${other?.title ?? '(unavailable)'}`, width - 4, ascii)}
-      </Text>;
-    })}
-    <Box flexGrow={1}/>
-    <Text color={c.muted}>{fit('j/k choose   Enter follow   Esc back', width - 4, ascii)}</Text>
-  </Box>;
-}
-
-export function FilterRail({filter, issues, width, ascii}: {filter: Filter; issues: Issue[]; width: number; ascii: boolean}) {
-  const c = usePalette();
-  const filters: Filter[] = ['ready', 'active', 'blocked', 'all'];
-  const labels = {ready: 'Ready', active: 'Not closed', blocked: 'Blocked', all: 'Everything'};
-  return <Box width={width} flexDirection="column" paddingRight={1}>
-    <Text color={c.muted}>WORKSPACE</Text><Text color={c.text}>bees / demo</Text><Text color={c.text}> </Text>
-    <Text color={c.muted}>YOUR VIEWS</Text>
-    {filters.map(key => <Text key={key} color={filter === key ? c.honey : c.muted}>{fit(`${filter === key ? '>' : ' '} ${labels[key]} ${issues.filter(issue => matchesFilter(issue, issues, key)).length}`, width - 1, ascii)}</Text>)}
-    <Text color={c.text}> </Text><Text color={c.muted}>f change view</Text>
-    <Box flexGrow={1}/>
-    <Text color={c.honey}>{ascii ? '* SMALL WINS' : '✦ SMALL WINS'}</Text>
-    <Text color={c.muted}>Close bees-42.</Text><Text color={c.muted}>Free two tasks.</Text>
-  </Box>;
-}

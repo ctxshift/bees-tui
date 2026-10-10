@@ -1,13 +1,13 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {Session} from '../src/session.js';
 import type {BeesClient} from '../src/client.js';
-import {demoIssues} from '../src/fixtures.js';
+import {testIssues} from './fixtures.js';
 import {CommandError} from '../src/process.js';
 import {layoutGraph} from '../src/graph-layout.js';
 const sessions: Session[] = [];
 afterEach(() => {sessions.splice(0).forEach(session => session.dispose());});
 function fixture() {
-  let issues = demoIssues();
+  let issues = testIssues();
   const client: BeesClient = {
     project: '/test-project', list: vi.fn(async () => structuredClone(issues)), ready: vi.fn(async () => new Set(['bees-42'])),
     show: vi.fn(async id => structuredClone(issues.find(issue => issue.id === id)!)),
@@ -34,7 +34,7 @@ describe('live refresh and competing writers', () => {
   });
   it('never publishes partial graph tracks when selection changes during hydration', async () => {
     const {session, client} = fixture();
-    const issues = demoIssues().slice(0, 3);
+    const issues = testIssues().slice(0, 3);
     issues.forEach((issue, index) => {
       issue.dependencies = index ? [{id: issues[index - 1]!.id, type: 'blocks'}] : [];
       issue.dependenciesLoaded = true;
@@ -110,9 +110,9 @@ describe('live refresh and competing writers', () => {
     await session.mutate({kind: 'create', title: 'once'}); expect(session.getSnapshot().stale).toBe(true); expect(client.mutate).toHaveBeenCalledTimes(1);
   });
   it('discards a late response from a previous project', async () => {
-    const {session, client} = fixture(); let resolve!: (value: ReturnType<typeof demoIssues>) => void;
+    const {session, client} = fixture(); let resolve!: (value: ReturnType<typeof testIssues>) => void;
     vi.mocked(client.list).mockImplementationOnce(() => new Promise(done => {resolve = done;})); const first = session.refresh();
-    await session.switchProject({...client, project: '/other', list: async () => []}); await session.refresh(); resolve(demoIssues()); await first;
+    await session.switchProject({...client, project: '/other', list: async () => []}); await session.refresh(); resolve(testIssues()); await first;
     expect(session.getSnapshot().project).toBe('/other'); expect(session.getSnapshot().issues).toEqual([]);
   });
 });

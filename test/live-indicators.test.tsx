@@ -4,7 +4,7 @@ import {cleanup, render} from 'ink-testing-library';
 import {LiveStatus} from '../src/live-status.js';
 import {IssueList, Board, Inspector} from '../src/views.js';
 import {RelationshipGraph} from '../src/graph.js';
-import {demoIssues} from '../src/fixtures.js';
+import {testIssues} from './fixtures.js';
 
 afterEach(() => {cleanup(); vi.useRealTimers();});
 it('keeps live status text stable throughout a finite receive pulse and supports reduced motion', async () => {
@@ -28,7 +28,7 @@ it('keeps live status text stable throughout a finite receive pulse and supports
 });
 
 it('shows a separate change marker in Queue, Board, Graph, list mode and inspection', () => {
-  const issues = demoIssues(); const selected = issues[0]!;
+  const issues = testIssues(); const selected = issues[0]!;
   selected.modifiedInJsonl = true;
   const props = {issues, all: issues, selected, width: 100, height: 24, ascii: true};
   const queue = renderToString(<IssueList {...props}/>, {columns: 100});
