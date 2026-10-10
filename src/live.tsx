@@ -3,7 +3,7 @@ import {basename} from 'node:path';
 import {Box, Text, useApp, useInput, useWindowSize, useIsScreenReaderEnabled} from 'ink';
 import {Session} from './session.js';
 import {CliClient, type Mutation, type Patch} from './client.js';
-import {type Filter, type Issue, type Section, type View, moveSelection, selectedIssue, statuses} from './model.js';
+import {type Filter, type Issue, type Section, type View, blockers, moveSelection, selectedIssue, statuses} from './model.js';
 import {defaultProject, discoverProjects, findProject, savePreferences, columns as availableColumns, type Column, type Preferences, type ProjectPrefs, type ThemeName} from './preferences.js';
 import {parseQuery, queryIssues, wouldCycle} from './query.js';
 import {asciiBorder, fit, palettes, statusLabels, ThemeContext, usePalette, viewport} from './theme.js';
@@ -104,7 +104,10 @@ function Workbench({session, preferences, updatePreferences, width: fixedWidth, 
     const released = next.issues.filter(issue => issue.ready && !readyBefore.has(issue.id) && issue.id !== id);
     setModal(null); setCelebration(Date.now());
     if (id) setP(value => ({...value, filter: 'all', query: '', selected: id}));
-    notify(`${command.kind === 'export' ? 'JSONL exported.' : 'Saved.'}${released.length ? ` ${released.length} now ready: ${released.map(issue => issue.id).join(', ')}.` : ''}${next.stale ? ' Refresh failed; showing last known state.' : ''}`);
+    const movedId = command.kind === 'close' || command.kind === 'update' && command.patch.status ? command.id : undefined;
+    const reveal = Boolean(movedId && !next.stale && !queryIssues(next.issues, p.filter, p.query, p.sort, preferences.user).some(issue => issue.id === movedId));
+    if (movedId && !next.stale) setP(value => ({...value, selected: movedId, closedCollapsed: false, ...(reveal ? {filter: 'all', query: ''} : {})}));
+    notify(`${command.kind === 'export' ? 'JSONL exported.' : 'Saved.'}${reveal ? ' Showing all issues to keep the moved issue visible.' : ''}${released.length ? ` ${released.length} now ready: ${released.map(issue => issue.id).join(', ')}.` : ''}${next.stale ? ' Refresh failed; showing last known state.' : ''}`);
   }
   function editField(field: keyof Patch, title: string, multiline = false) {
     if (!selected) return;
@@ -124,7 +127,8 @@ function Workbench({session, preferences, updatePreferences, width: fixedWidth, 
   }
   function statusMenu() {
     if (!selected) return; const base = structuredClone(selected);
-    menu('MOVE ISSUE', statuses.map(status => ({label: statusLabels[status], run: () => status === 'closed' ? complete(base) : write({kind: 'update', id: base.id, patch: {status}}, base)})));
+    const blockedBy = blockers(base, state.issues);
+    menu('MOVE ISSUE', statuses.map(status => ({label: statusLabels[status] + (status === 'in_progress' && blockedBy.length ? ` (! ${blockedBy.length} unresolved blocker${blockedBy.length === 1 ? '' : 's'})` : ''), run: () => status === 'closed' ? complete(base) : write({kind: 'update', id: base.id, patch: {status}}, base)})));
   }
   function priorityMenu() {
     if (!selected) return; const base = structuredClone(selected);

@@ -55,14 +55,34 @@ describe('graph geometry', () => {
 });
 
 describe('live UI', () => {
-  async function boot(width = 100, height = 30) {
+  it('keeps a moved issue visible in the destination Board lane under the default Ready filter', async () => {
+    const app = await boot(); await app.key('2');
+    await vi.waitFor(() => expect(app.lastFrame()).toContain('h/l lanes'));
+    await app.key('s'); await vi.waitFor(() => expect(app.lastFrame()).toContain('MOVE ISSUE'));
+    await app.key('j'); await app.key('\r');
+    await vi.waitFor(() => expect(app.lastFrame()).toContain('Saved.'));
+    expect(app.session.getSnapshot().issues.find(issue => issue.id === 'bees-42')?.status).toBe('in_progress');
+    expect(app.lastFrame()).toContain('Land the command');
+    const active = app.session.getSnapshot().issues.filter(issue => issue.status === 'in_progress').length;
+    expect(app.lastFrame()).toContain(`In progress  ${active}/${active}`);
+    expect(app.lastFrame()).toContain('Showing all issues');
+    app.session.dispose();
+  });
+  async function boot(width = 100, height = 30, projectPrefs = defaultProject()) {
     let issues = testIssues();
     const client: BeesClient = {project: '/test', list: async () => structuredClone(issues), ready: async () => new Set(['bees-42']), show: async id => structuredClone(issues.find(issue => issue.id === id)!), dependencies: async id => issues.find(issue => issue.id === id)!.dependencies,
       mutate: vi.fn(async command => {if (command.kind === 'update') issues = issues.map(issue => issue.id === command.id ? {...issue, ...command.patch} : issue); return undefined;})};
-    const session = new Session(client, 0); const app = render(<LiveApp session={session} preferences={{...defaultPreferences(), motion: false}} width={width} height={height}/>);
+    const session = new Session(client, 0); const app = render(<LiveApp session={session} preferences={{...defaultPreferences(), motion: false, projects: {'/test': projectPrefs}}} width={width} height={height}/>);
     await vi.waitFor(() => {expect(session.getSnapshot().loading).toBe(false); expect(app.lastFrame()).toContain('WORK QUEUE');});
     return {...app, session, client, external: async () => {issues[1]!.title = 'External title'; await session.refresh();}, key: async (text: string) => {app.stdin.write(text); await new Promise<void>(resolve => setImmediate(resolve));}};
   }
+  it('warns about unresolved blockers without forbidding the status change', async () => {
+    const app = await boot(100, 30, {...defaultProject(), filter: 'all', selected: 'bees-43'});
+    await app.key('s'); await vi.waitFor(() => expect(app.lastFrame()).toContain('In progress (! 1 unresolved blocker)'));
+    await app.key('j'); await app.key('\r'); await vi.waitFor(() => expect(app.lastFrame()).toContain('Saved.'));
+    expect(app.session.getSnapshot().issues.find(issue => issue.id === 'bees-43')?.status).toBe('in_progress');
+    app.session.dispose();
+  });
   it('keeps shortcut letters in a failed creation draft and retries only on explicit submit', async () => {
     const app = await boot();
     vi.mocked(app.client.mutate).mockRejectedValueOnce(new Error('Save failed; draft kept.'));
