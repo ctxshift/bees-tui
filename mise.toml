@@ -1,0 +1,32 @@
+[tools]
+node = "25.6.1"
+
+[env]
+# Local Bees source checkout; an installed bees on PATH remains a fallback.
+_.path = ["../zig/bees/zig-out/bin"]
+
+[tasks.setup]
+description = "Install locked dependencies"
+run = "npm ci"
+
+[tasks.build]
+run = "npm run build"
+
+[tasks.start]
+description = "Open the live TUI in the current Bees project"
+raw = true
+run = "npm start"
+
+[tasks.demo]
+raw = true
+run = "npm run demo"
+
+[tasks.test]
+run = "npm run check"
+
+[tasks.preview]
+run = "npm run preview"
+
+[tasks.bees]
+description = "Use this project's Bees tracker"
+run = "bees"

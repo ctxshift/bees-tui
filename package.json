@@ -1,0 +1,46 @@
+{
+  "name": "bees-tui",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A live React Ink workbench for Bees issues",
+  "bin": {
+    "bees-tui": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "DESIGN.md"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "demo": "tsx src/cli.tsx --demo",
+    "start": "node dist/cli.js",
+    "prestart": "npm run build",
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "pretest": "npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm test",
+    "preview": "tsx scripts/preview.tsx"
+  },
+  "dependencies": {
+    "ink": "8.0.0",
+    "ink-text-input": "6.0.0",
+    "react": "19.3.0",
+    "string-width": "8.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "19.3.0",
+    "ansi-to-html": "0.7.2",
+    "ink-testing-library": "4.0.0",
+    "node-pty": "1.1.0",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "4.0.18"
+  }
+}
