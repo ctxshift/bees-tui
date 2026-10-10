@@ -23,6 +23,7 @@ export class Session {
   private disposed = false;
   private selected = '';
   private graph = false;
+  private snapshotRevision?: string;
   private undo: Undo[] = [];
   constructor(public client: BeesClient, private interval = 2500) {
     this.state = {project: client.project, issues: [], loading: true, saving: false, stale: false, error: '',
@@ -49,12 +50,13 @@ export class Session {
   select(id: string) {
     if (this.selected === id) return;
     this.selected = id;
+    if (this.client.snapshot) return; // Full snapshots already include every detail.
     const epoch = this.generation;
     // A bounded refresh, rather than one subprocess for every rapid keypress.
     clearTimeout(this.debounce);
     this.debounce = setTimeout(() => {if (epoch === this.generation) void this.refresh();}, 100);
   }
-  needGraph(value: boolean) {if (value && !this.graph) {this.graph = true; void this.refresh();} else this.graph = value;}
+  needGraph(value: boolean) {if (value && !this.graph) {this.graph = true; if (!this.client.snapshot) void this.refresh();} else this.graph = value;}
 
   refresh = (): Promise<void> => {
     if (this.disposed || this.state.saving) return Promise.resolve();
@@ -65,6 +67,21 @@ export class Session {
     this.publish({loading: true});
     this.inFlight = (async () => {
       try {
+        if (client.snapshot) {
+          const snapshot = await client.snapshot(this.snapshotRevision, signal);
+          if (snapshot.unchanged && (!this.snapshotRevision || snapshot.revision !== this.snapshotRevision)) throw new Error('Unexpected unchanged snapshot.');
+          const changes = await client.changes?.(signal);
+          if (epoch !== this.generation || this.disposed) return;
+          const issues = (snapshot.unchanged ? this.state.issues : snapshot.issues).map(issue => {
+            const modifiedInJsonl = changes?.available ? changes.ids.has(issue.id) : undefined;
+            return issue.modifiedInJsonl === modifiedInJsonl ? issue : {...issue, modifiedInJsonl};
+          });
+          const changed = JSON.stringify(issues) !== JSON.stringify(this.state.issues);
+          this.snapshotRevision = snapshot.revision;
+          this.publish({issues: changed ? issues : this.state.issues, loading: false, stale: false, error: '', gitAvailable: changes?.available,
+            graphLoaded: true, refreshedAt: Date.now(), revision: this.state.revision + (changed ? 1 : 0)});
+          return;
+        }
         const issues = await client.list(signal);
         const ready = await client.ready(signal);
         for (const issue of issues) issue.ready = ready.has(issue.id) && issue.status === 'open' && !issue.rawStatus;
@@ -103,7 +120,7 @@ export class Session {
   async switchProject(client: BeesClient) {
     if (this.state.saving) throw new Error('Wait for the current save before changing projects.');
     this.stopWatchers(); this.abort.abort(); this.abort = new AbortController(); this.generation++;
-    this.inFlight = undefined; this.client = client; this.selected = ''; this.undo = []; this.graph = false;
+    this.inFlight = undefined; this.client = client; this.selected = ''; this.undo = []; this.graph = false; this.snapshotRevision = undefined;
     this.publish({project: client.project, issues: [], loading: true, saving: false, stale: false, error: '', uncertain: false,
       refreshedAt: 0, revision: this.state.revision + 1, graphLoaded: false, canUndo: false, gitAvailable: undefined});
     this.start();
@@ -138,7 +155,8 @@ export class Session {
           if (JSON.stringify([...current.labels].sort()) !== JSON.stringify([...base.labels].sort())) throw new ConflictError('Labels changed outside the TUI. Reload the label picker.');
           if (current.labels.includes(command.label) !== !command.remove) inverse = {...command, remove: !command.remove};
         } else if (command.kind === 'dependency') {
-          if (JSON.stringify(current.dependencies) !== JSON.stringify(base.dependencies)) throw new ConflictError('Relationships changed outside the TUI. Reload the graph.');
+          const edges = (issue: Issue) => JSON.stringify(issue.dependencies.map(dep => [dep.id, dep.type]).sort(([a], [b]) => a!.localeCompare(b!)));
+          if (edges(current) !== edges(base)) throw new ConflictError('Relationships changed outside the TUI. Reload the graph.');
           const existing = current.dependencies.find(dep => dep.id === command.target);
           if (!command.remove && existing) throw new Error('A relationship to that issue already exists. Remove it before changing its type.');
           inverse = {...command, remove: !command.remove, relation: existing?.type ?? command.relation};

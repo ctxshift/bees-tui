@@ -18,6 +18,38 @@ function fixture() {
   return {client, session, external: (title: string) => {issues[1]!.title = title;}, comments: () => {issues[1]!.comments.push({author: 'external', text: 'new comment'});}};
 }
 describe('live refresh and competing writers', () => {
+  it('uses one snapshot read, avoids cursor hydration, and updates Git markers even on unchanged reads', async () => {
+    const {session, client} = fixture(); const revision = 'a'.repeat(32);
+    client.snapshot = vi.fn().mockResolvedValueOnce({revision, unchanged: false, issues: testIssues()}).mockResolvedValue({revision, unchanged: true});
+    client.changes = vi.fn(async () => ({available: true, ids: new Set<string>()}));
+    await session.refresh(); const issues = session.getSnapshot().issues;
+    session.select('bees-42'); session.needGraph(true); session.select('bees-43');
+    expect(client.snapshot).toHaveBeenCalledTimes(1);
+    await session.refresh(); expect(session.getSnapshot().issues).toBe(issues);
+    expect(client.snapshot).toHaveBeenLastCalledWith(revision, expect.any(AbortSignal));
+    vi.mocked(client.changes).mockResolvedValue({available: true, ids: new Set(['bees-42'])});
+    await session.refresh(); expect(session.getSnapshot().issues.find(issue => issue.id === 'bees-42')?.modifiedInJsonl).toBe(true);
+    expect(client.list).not.toHaveBeenCalled(); expect(client.show).not.toHaveBeenCalled(); expect(client.dependencies).not.toHaveBeenCalled();
+    const good = session.getSnapshot().issues;
+    vi.mocked(client.snapshot).mockRejectedValueOnce(new Error('offline'));
+    await session.refresh(); expect(session.getSnapshot().issues).toBe(good); expect(session.getSnapshot().stale).toBe(true);
+    vi.mocked(client.snapshot).mockResolvedValueOnce({revision: 'b'.repeat(32), unchanged: false, issues: []});
+    await session.switchProject({...client, project: '/next'}); await session.refresh();
+    expect(client.snapshot).toHaveBeenLastCalledWith(undefined, expect.any(AbortSignal));
+    expect(session.getSnapshot().issues).toEqual([]);
+  });
+  it('discards an old project snapshot and rejects unchanged responses without a baseline', async () => {
+    const {session, client} = fixture(); const revision = 'a'.repeat(32);
+    let release!: (value: {revision: string; unchanged: false; issues: ReturnType<typeof testIssues>}) => void;
+    client.snapshot = vi.fn(() => new Promise<import('../src/client.js').Snapshot>(resolve => {release = resolve;}));
+    const first = session.refresh();
+    await session.switchProject({...client, project: '/next', snapshot: async () => ({revision, unchanged: false, issues: []})}); await session.refresh();
+    release({revision, unchanged: false, issues: testIssues()}); await first;
+    expect(session.getSnapshot().issues).toEqual([]);
+    await session.switchProject({...client, project: '/invalid', snapshot: async () => ({revision, unchanged: true})}); await session.refresh();
+    expect(session.getSnapshot().stale).toBe(true);
+    expect(session.getSnapshot().error).toContain('Unexpected unchanged');
+  });
   it('refreshes Git markers independently of issue edits and clears unknown status', async () => {
     const {session, client} = fixture();
     client.changes = vi.fn(async () => ({available: true, ids: new Set(['bees-42'])}));

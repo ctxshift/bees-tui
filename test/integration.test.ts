@@ -46,11 +46,12 @@ describe.skipIf(!existsSync(binary))('real Bees CLI contract', () => {
     const baseline = tracks();
     const published: ReturnType<typeof tracks>[] = [];
     const unsubscribe = session.subscribe(() => {published.push(tracks());});
-    const read = client.dependencies.bind(client);
+    const read = client.snapshot.bind(client);
     let cursor = 0;
-    const navigating = vi.spyOn(client, 'dependencies').mockImplementation(async (id, signal) => {
+    const navigating = vi.spyOn(client, 'snapshot').mockImplementation(async (since, signal) => {
       session!.select(ids[++cursor % ids.length]!);
-      return read(id, signal);
+      session!.select(ids[++cursor % ids.length]!);
+      return read(since, signal);
     });
     await session.refresh();
     navigating.mockRestore(); unsubscribe();

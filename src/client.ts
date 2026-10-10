@@ -7,6 +7,7 @@ export type Mutation = ({kind: 'create'; title: string} | {kind: 'update'; id: s
   {kind: 'close'; id: string; reason: string} | {kind: 'comment'; id: string; text: string; author: string} |
   {kind: 'label'; id: string; label: string; remove: boolean} |
   {kind: 'dependency'; id: string; target: string; relation: Relation['type']; remove: boolean} | {kind: 'export'}) & {expectedRevision?: string};
+export type Snapshot = {revision: string; unchanged: true} | {revision: string; unchanged: false; issues: Issue[]};
 export interface BeesClient {
   readonly project: string;
   list(signal?: AbortSignal): Promise<Issue[]>;
@@ -14,6 +15,7 @@ export interface BeesClient {
   show(id: string, signal?: AbortSignal): Promise<Issue>;
   dependencies(id: string, signal?: AbortSignal): Promise<Relation[]>;
   changes?(signal?: AbortSignal): Promise<JsonlChanges>;
+  snapshot?(since?: string, signal?: AbortSignal): Promise<Snapshot>;
   mutate(command: Mutation): Promise<string | undefined>;
 }
 
@@ -54,6 +56,29 @@ export function decodeIssue(value: unknown): Issue {
 const flags: Record<keyof Patch, string> = {title: '--title', description: '--description', status: '--status', priority: '--priority',
   type: '--type', assignee: '--assignee', owner: '--owner', design: '--design', acceptance: '--acceptance', notes: '--notes',
   due: '--due', defer: '--defer', externalRef: '--external-ref'};
+
+export function decodeSnapshot(value: unknown): Snapshot {
+  const data = object(value);
+  if (data.schema_version !== 1 || typeof data.unchanged !== 'boolean') throw new Error('Unsupported Bees snapshot schema. Upgrade Bees for bulk reads.');
+  const revision = string(data.revision);
+  if (!/^[a-f0-9]{32}$/.test(revision)) throw new Error('Invalid Bees snapshot revision.');
+  if (data.unchanged) return {revision, unchanged: true};
+  const issues = array(data.issues).map(value => ({...decodeIssue(value), revision, dependenciesLoaded: true, dependencies: [] as Relation[], dependents: [] as Relation[], ready: false}));
+  const byId = new Map(issues.map(issue => [issue.id, issue]));
+  if (byId.size !== issues.length) throw new Error('Duplicate snapshot issue ID.');
+  const issueFor = (value: unknown) => {const id = string(value); const issue = byId.get(id); if (!issue) throw new Error(`Unknown snapshot issue: ${id}`); return issue;};
+  for (const value of array(data.labels)) {const row = object(value); issueFor(row.issue_id).labels.push(string(row.label));}
+  for (const value of array(data.dependencies)) {
+    const row = object(value); const issue = issueFor(row.issue_id);
+    const dep = relation({id: row.depends_on_id, type: row.type});
+    issue.dependencies.push(dep);
+    byId.get(dep.id)?.dependents.push({id: issue.id, type: dep.type});
+  }
+  for (const value of array(data.comments)) {const row = object(value); issueFor(row.issue_id).comments.push({author: string(row.author, true), text: string(row.text)});}
+  for (const id of array(data.ready)) {const issue = issueFor(id); issue.ready = issue.status === 'open' && !issue.rawStatus;}
+  for (const issue of issues) issue.dependencyCount = issue.dependencies.length;
+  return {revision, unchanged: false, issues};
+}
 
 export function validDate(value: string): boolean {
   if (!value) return true;
@@ -101,6 +126,9 @@ function unguardedArgs(command: Mutation): string[] {
 export class CliClient implements BeesClient {
   constructor(readonly project: string, readonly executable: string, private runner: Runner = run) {}
   changes(signal?: AbortSignal) {return jsonlChanges(this.project, signal);}
+  async snapshot(since?: string, signal?: AbortSignal) {
+    return decodeSnapshot(await this.json(['snapshot', ...(since ? ['--since', since] : [])], signal));
+  }
   private async json(args: string[], signal?: AbortSignal): Promise<unknown> {
     // Reads may race another CLI's schema setup; retry only a recognized busy/locked read.
     for (let attempt = 0; ; attempt++) {
